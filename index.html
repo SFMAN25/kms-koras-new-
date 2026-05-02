@@ -99,6 +99,7 @@
         .reviewed { text-decoration: line-through; color: #7f8c8d; opacity: 0.7; }
         .item-name-cell { display: flex; align-items: center; justify-content: center; gap: 10px; }
         .copy-text-btn { color: #7f8c8d; background: none; border: none; cursor: pointer; font-size: 14px; }
+        
         .action-btns { display: flex; justify-content: center; gap: 8px; align-items: center; }
         .delete-btn { color: #c0392b; background: none; border: none; cursor: pointer; font-size: 18px; }
         .edit-row-btn { color: #f39c12; background: none; border: none; cursor: pointer; font-size: 18px; }
@@ -119,13 +120,13 @@
         .slot-items li:last-child { border-bottom: none; }
         .empty-slot { color: #aaa; text-align: center; font-size: 12px; font-style: italic; }
 
-        /* نافذة إضافة أصناف للخانة Modal */
+        /* تنسيق الأزرار داخل خريطة المخزن (Modal) */
         .modal-overlay {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.6); z-index: 10000; justify-content: center; align-items: center;
         }
         .modal-box {
-            background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 500px;
+            background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 550px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;
         }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
@@ -137,8 +138,15 @@
         
         .slot-current-items { margin-top: 20px; }
         .slot-current-items ul { list-style: none; padding: 0; }
-        .slot-current-items li { display: flex; justify-content: space-between; align-items: center; background: #eee; padding: 10px; margin-bottom: 5px; border-radius: 5px; }
-        .slot-delete-item { color: #e74c3c; cursor: pointer; background: none; border: none; font-size: 16px; }
+        .slot-current-items li { display: flex; justify-content: space-between; align-items: center; background: #eee; padding: 10px; margin-bottom: 5px; border-radius: 5px; flex-wrap: wrap; gap: 10px;}
+        
+        .map-action-btns { display: flex; gap: 8px; align-items: center; }
+        .map-action-btns button { background: none; border: none; cursor: pointer; font-size: 16px; padding: 5px; }
+        .map-action-btns .check-btn { color: var(--secondary-color); }
+        .map-action-btns .move-btn { color: #34495e; }
+        .map-action-btns .delete-btn { color: #e74c3c; }
+        
+        .reviewed-map-item { text-decoration: line-through; color: #7f8c8d; opacity: 0.7; }
 
         footer { margin-top: 40px; text-align: center; padding: 20px; background: rgba(255,255,255,0.8); border-radius: 12px; }
         .whatsapp-btn { display: inline-flex; align-items: center; gap: 10px; background: #25D366; color: white; padding: 15px 25px; text-decoration: none; border-radius: 50px; font-weight: bold; margin-top: 15px; }
@@ -240,7 +248,7 @@
 
     <div id="tab-map" class="tab-content">
         <div class="controls-section" style="text-align: center; margin-bottom: 15px;">
-            <p><i class="fas fa-info-circle"></i> اضغط على أي خانة لإضافة أو تعديل الأصناف الموجودة بداخلها (بالتات، أنصاف، إلخ).</p>
+            <p><i class="fas fa-info-circle"></i> اضغط على أي خانة لإضافة، ترتيب، أو تعديل الأصناف بداخلها.</p>
         </div>
         
         <div class="map-wrapper" id="warehouseMapUI">
@@ -283,7 +291,7 @@
         </div>
 
         <div class="slot-current-items">
-            <h4>الأصناف الموجودة حالياً:</h4>
+            <h4>الأصناف الموجودة حالياً (رتب أو راجع):</h4>
             <ul id="slotItemsListUI"></ul>
         </div>
     </div>
@@ -302,7 +310,9 @@
       databaseURL: "https://kmskoras-default-rtdb.europe-west1.firebasedatabase.app"
     };
 
-    firebase.initializeApp(firebaseConfig);
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
     const db = firebase.database();
 
     // --- المتغيرات الأساسية ---
@@ -311,13 +321,12 @@
     dateInput.value = new Date().toISOString().split('T')[0];
 
     let inventoryData = {}; 
-    let mapData = {}; // تخزين بيانات الخريطة
+    let mapData = {}; 
     let editIndex = null;
     let currentInventoryListenerRef = null;
     let currentMapListenerRef = null;
-    let currentActiveSlotId = null; // الخانة اللي مفتوحة في المودال
+    let currentActiveSlotId = null; 
 
-    // إعداد هيكل الخريطة (يمين: 5، وسط: 5، يسار: 8)
     const mapStructure = [
         { id: "col_right", count: 5 },
         { id: "col_center", count: 5 },
@@ -364,6 +373,9 @@
         currentMapListenerRef.on('value', (snapshot) => {
             mapData[date] = snapshot.val() || initializeEmptyMap();
             renderMapUI();
+            if (document.getElementById('slotModal').style.display === 'flex' && currentActiveSlotId) {
+                renderModalCurrentItems(); // تحديث النافذة لو مفتوحة
+            }
         });
     }
 
@@ -372,7 +384,7 @@
         let slotCounter = 1;
         mapStructure.forEach(col => {
             for(let i=0; i<col.count; i++) {
-                emptyMap['slot_' + slotCounter] = []; // مصفوفة فارغة لكل خانة
+                emptyMap['slot_' + slotCounter] = []; 
                 slotCounter++;
             }
         });
@@ -486,7 +498,7 @@
     }
 
     function deleteItem(index) {
-        if(confirm("هل تريد حذف هذا البند؟")) {
+        if(confirm("هل تريد حذف هذا البند من الجرد اليومي؟")) {
             inventoryData[dateInput.value].splice(index, 1);
             saveInventoryToFirebase();
         }
@@ -509,13 +521,13 @@
     }
 
     // ==========================================
-    // قسم خريطة المخزن
+    // قسم خريطة المخزن (الجديد والمعدل)
     // ==========================================
     function renderMapUI() {
         const wrapper = document.getElementById('warehouseMapUI');
         wrapper.innerHTML = '';
         const selectedDate = dateInput.value;
-        const currentMap = mapData[selectedDate];
+        const currentMap = mapData[selectedDate] || {};
 
         let globalSlotCounter = 1;
 
@@ -529,7 +541,7 @@
                 
                 const slotDiv = document.createElement('div');
                 slotDiv.className = 'slot';
-                slotDiv.onclick = () => openSlotModal(slotId, globalSlotCounter - 1); // Pass real logic ID
+                slotDiv.onclick = () => openSlotModal(slotId, globalSlotCounter - 1); 
                 
                 let itemsHTML = '';
                 if(itemsInSlot.length === 0) {
@@ -537,7 +549,9 @@
                 } else {
                     itemsHTML = '<ul class="slot-items">';
                     itemsInSlot.forEach(item => {
-                        itemsHTML += `<li><b>${item.qty} ${item.unit}</b> - ${item.name}</li>`;
+                        // إضافة كلاس الشطب لو الصنف متراجع
+                        const reviewedClass = item.isReviewed ? 'reviewed-map-item' : '';
+                        itemsHTML += `<li class="${reviewedClass}"><b>${item.qty} ${item.unit}</b> - ${item.name}</li>`;
                     });
                     itemsHTML += '</ul>';
                 }
@@ -575,9 +589,17 @@
         
         items.forEach((item, index) => {
             const li = document.createElement('li');
+            if (item.isReviewed) li.classList.add('reviewed-map-item');
+            
+            // إضافة جميع الأزرار للصنف داخل الخريطة
             li.innerHTML = `
                 <span><b>${item.qty} ${item.unit}</b> - ${item.name}</span>
-                <button class="slot-delete-item" onclick="deleteItemFromSlot(${index})"><i class="fas fa-trash"></i></button>
+                <div class="map-action-btns">
+                    <button class="check-btn" onclick="toggleMapItemReview(event, ${index})" title="تمت المراجعة"><i class="fas fa-check-double"></i></button>
+                    <button class="move-btn" onclick="moveMapItem(event, ${index}, -1)" title="نقل لأعلى"><i class="fas fa-arrow-up"></i></button>
+                    <button class="move-btn" onclick="moveMapItem(event, ${index}, 1)" title="نقل لأسفل"><i class="fas fa-arrow-down"></i></button>
+                    <button class="delete-btn" onclick="deleteItemFromSlot(event, ${index})" title="حذف"><i class="fas fa-trash-alt"></i></button>
+                </div>
             `;
             listUI.appendChild(li);
         });
@@ -594,19 +616,39 @@
             mapData[dateInput.value][currentActiveSlotId] = [];
         }
         
-        mapData[dateInput.value][currentActiveSlotId].push({ name, qty, unit });
+        mapData[dateInput.value][currentActiveSlotId].push({ name, qty, unit, isReviewed: false });
         saveMapToFirebase();
-        renderModalCurrentItems();
         
-        // تفريغ الحقول بعد الإضافة
         document.getElementById('slotItemName').value = '';
         document.getElementById('slotItemQty').value = '';
     }
 
-    function deleteItemFromSlot(index) {
-        mapData[dateInput.value][currentActiveSlotId].splice(index, 1);
+    // دوال التحكم الخاصة بالخريطة
+    function toggleMapItemReview(event, index) {
+        event.stopPropagation(); // عشان النافذة متقفلش أو تعمل كليك في حتة تانية
+        const items = mapData[dateInput.value][currentActiveSlotId];
+        items[index].isReviewed = !items[index].isReviewed;
         saveMapToFirebase();
-        renderModalCurrentItems();
+    }
+
+    function moveMapItem(event, index, direction) {
+        event.stopPropagation();
+        const items = mapData[dateInput.value][currentActiveSlotId];
+        const newIndex = index + direction;
+        if (newIndex >= 0 && newIndex < items.length) {
+            const temp = items[index];
+            items[index] = items[newIndex];
+            items[newIndex] = temp;
+            saveMapToFirebase();
+        }
+    }
+
+    function deleteItemFromSlot(event, index) {
+        event.stopPropagation();
+        if(confirm("هل تريد حذف هذا الصنف من الخانة؟")) {
+            mapData[dateInput.value][currentActiveSlotId].splice(index, 1);
+            saveMapToFirebase();
+        }
     }
 
     // --- أدوات مساعدة ---
@@ -616,13 +658,11 @@
         const overlay = document.getElementById('loadingOverlay');
         overlay.style.display = 'flex';
         
-        // إخفاء الزراير عشان متظهرش في الصورة
         const hideElements = document.querySelectorAll('.controls-section, .share-btn, .action-btns, .tabs, .copy-text-btn');
         hideElements.forEach(el => el.style.display = 'none');
 
         const canvas = await html2canvas(document.getElementById('printableArea'), { useCORS: true, scale: 2 });
         
-        // إرجاع الزراير مرة تانية
         hideElements.forEach(el => el.style.display = '');
 
         const link = document.createElement('a');
