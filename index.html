@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام جرد مخزن الكراس - تطوير بودا</title>
+    <title>نظام إدارة مخازن كمال سعد (ERP)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
     <style>
         :root {
@@ -18,147 +19,93 @@
             --accent-color: #d35400;
             --text-color: #2c3e50;
             --white: #ffffff;
+            --danger: #e74c3c;
+            --info: #3498db;
             --review-color: #7f8c8d;
         }
 
-        /* تنسيق شاشة الباسورد */
         #loginScreen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(26, 37, 47, 0.9), rgba(26, 37, 47, 0.9)), url('https://files.catbox.moe/pe6wie.jpg');
-            background-size: cover; z-index: 9999; display: flex;
-            justify-content: center; align-items: center; flex-direction: column; color: white;
+            background: linear-gradient(rgba(26, 37, 47, 0.95), rgba(26, 37, 47, 0.95)), url('https://files.catbox.moe/pe6wie.jpg');
+            background-size: cover; z-index: 9999; display: flex; justify-content: center; align-items: center; flex-direction: column; color: white;
         }
+        .login-box { background: rgba(255, 255, 255, 0.1); padding: 40px; border-radius: 20px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 350px; }
+        .login-box input { padding: 15px; width: 100%; border-radius: 10px; border: none; text-align: center; font-size: 16px; margin-bottom: 20px; box-sizing: border-box; display: block; }
+        .login-box button { padding: 12px 30px; background: var(--secondary-color); color: white; width: 100%; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 18px; }
+        .hp-field { display: none !important; visibility: hidden; }
 
-        .login-box {
-            background: rgba(255, 255, 255, 0.1); padding: 40px; border-radius: 20px;
-            backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2);
-            text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-        }
-
-        .login-box input {
-            padding: 15px; width: 200px; border-radius: 10px; border: none;
-            text-align: center; font-size: 24px; letter-spacing: 5px;
-            margin-bottom: 20px; display: block;
-        }
-
-        .login-box button {
-            padding: 10px 30px; background: var(--secondary-color); color: white;
-            border: none; border-radius: 8px; cursor: pointer; font-weight: bold;
-        }
-
-        /* تنسيق الموقع الأساسي */
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-image: linear-gradient(rgba(224, 234, 252, 0.8), rgba(224, 234, 252, 0.8)), url('https://files.catbox.moe/pe6wie.jpg');
-            background-size: cover; background-position: center; background-attachment: fixed;
-            margin: 0; padding: 10px; color: var(--text-color); min-height: 100vh;
-        }
-
-        .container {
-            max-width: 1200px; margin: 20px auto; background: rgba(255, 255, 255, 0.94);
-            padding: 30px; border-radius: 15px; box-shadow: 0 15px 35px rgba(0,0,0,0.2);
-            backdrop-filter: blur(5px);
-        }
-
-        header {
-            text-align: center; margin-bottom: 25px; padding-bottom: 20px;
-            border-bottom: 3px solid var(--secondary-color);
-        }
-
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-image: linear-gradient(rgba(224, 234, 252, 0.8), rgba(224, 234, 252, 0.8)), url('https://files.catbox.moe/pe6wie.jpg'); background-size: cover; background-position: center; background-attachment: fixed; margin: 0; padding: 10px; color: var(--text-color); min-height: 100vh; }
+        .container { max-width: 1200px; margin: 20px auto; background: rgba(255, 255, 255, 0.94); padding: 30px; border-radius: 15px; box-shadow: 0 15px 35px rgba(0,0,0,0.2); backdrop-filter: blur(5px); display: none; }
+        
+        header { text-align: center; margin-bottom: 25px; padding-bottom: 20px; border-bottom: 3px solid var(--secondary-color); position: relative; }
+        .logout-btn { position: absolute; left: 0; top: 0; background: var(--danger); color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
         .header-content { display: flex; align-items: center; justify-content: center; gap: 25px; flex-wrap: wrap; }
-        .logo-img { max-width: 120px; height: auto; border-radius: 15px; }
+        .logo-img { max-width: 120px; border-radius: 15px; }
         .roles-header { margin-top: 10px; font-size: 18px; color: #444; background: #eef2f3; padding: 10px; border-radius: 50px; display: inline-block; }
 
         /* التبويبات Tabs */
-        .tabs { display: flex; justify-content: center; gap: 15px; margin-bottom: 25px; border-bottom: 2px solid #ddd; padding-bottom: 10px; }
-        .tab-btn {
-            padding: 12px 25px; font-size: 18px; font-weight: bold; border: none;
-            background: #eee; color: #555; border-radius: 8px 8px 0 0; cursor: pointer;
-            transition: 0.3s;
-        }
+        .tabs { display: flex; justify-content: center; gap: 10px; margin-bottom: 25px; border-bottom: 2px solid #ddd; padding-bottom: 10px; flex-wrap: wrap;}
+        .tab-btn { padding: 10px 20px; font-size: 16px; font-weight: bold; border: none; background: #eee; color: #555; border-radius: 8px 8px 0 0; cursor: pointer; transition: 0.3s; }
         .tab-btn.active { background: var(--secondary-color); color: white; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.5s ease-in-out; }
-
+        .tab-content { display: none; animation: fadeIn 0.5s ease-in-out; }
+        .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* تنسيق قسم الجرد */
         .controls-section { background: #fff; padding: 20px; border-radius: 12px; margin-bottom: 25px; border: 1px solid #ddd; }
-        .history-btns { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
-        .input-group { display: grid; grid-template-columns: 2fr 1fr 1fr 0.6fr 1.5fr; gap: 12px; margin-top: 15px; }
+        .input-group { display: grid; grid-template-columns: 0.8fr 2fr 1fr 1fr 0.5fr 1fr; gap: 10px; margin-top: 15px; align-items: center;}
         input, select, button { padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 16px; }
         .add-btn { background: var(--secondary-color); color: white; border: none; font-weight: bold; cursor: pointer; }
-        .edit-mode-btn { background: var(--edit-color) !important; }
-        .copy-btn-names { background: var(--primary-color); color: white; border: none; cursor: pointer; font-size: 14px; }
-        .copy-btn-full { background: #34495e; color: white; border: none; cursor: pointer; font-size: 14px; }
-        .share-btn { background: #2980b9; color: white; border: none; margin-top: 20px; width: 100%; padding: 15px; font-size: 18px; cursor: pointer; }
-
-        table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; }
-        th { background: var(--primary-color); color: white; padding: 15px; }
-        td { padding: 12px; text-align: center; border-bottom: 1px solid #eee; font-weight: 600; }
+        .print-btn { background: var(--info); color: white; border: none; font-weight: bold; cursor: pointer; padding: 10px 15px; border-radius: 6px; }
+        
+        table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; font-size: 15px;}
+        th { background: var(--primary-color); color: white; padding: 12px; }
+        td { padding: 10px; text-align: center; border-bottom: 1px solid #eee; font-weight: 600; }
         .reviewed { text-decoration: line-through; color: #7f8c8d; opacity: 0.7; }
-        .item-name-cell { display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .copy-text-btn { color: #7f8c8d; background: none; border: none; cursor: pointer; font-size: 14px; }
+        .action-btns button { background: none; border: none; cursor: pointer; font-size: 18px; margin: 0 4px;}
+
+        /* الفواتير وسلة المشتريات */
+        .invoice-cart { border: 2px dashed #ccc; padding: 15px; border-radius: 8px; margin-top: 15px; background: #fdfdfd; }
+        .invoice-cart.out { border-color: var(--danger); }
+        .invoice-cart.in { border-color: var(--secondary-color); }
+        .invoice-cart table th { background: #555; }
         
-        .action-btns { display: flex; justify-content: center; gap: 8px; align-items: center; }
-        .delete-btn { color: #c0392b; background: none; border: none; cursor: pointer; font-size: 18px; }
-        .edit-row-btn { color: #f39c12; background: none; border: none; cursor: pointer; font-size: 18px; }
-        .check-btn { color: var(--secondary-color); background: none; border: none; cursor: pointer; font-size: 18px; }
-        .move-btn { color: #34495e; background: none; border: none; cursor: pointer; font-size: 16px; }
+        /* شريط إجمالي المحدد */
+        #selectionTotalsContainer { display: none; background: #27ae60; color: white; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center; font-size: 18px; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .row-checkbox { transform: scale(1.5); cursor: pointer; }
 
-        /* --- تنسيق خريطة المخزن --- */
-        .map-wrapper { display: flex; gap: 20px; justify-content: center; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #ddd; }
-        .map-col { display: flex; flex-direction: column; gap: 15px; flex: 1; }
-        .slot {
-            border: 2px solid #34495e; border-radius: 8px; min-height: 80px; padding: 10px;
-            background: #fdfdfd; cursor: pointer; transition: 0.2s; position: relative; box-shadow: inset 0 0 10px rgba(0,0,0,0.02);
-        }
-        .slot:hover { background: #eef2f3; border-color: var(--secondary-color); }
-        .slot-title { font-weight: bold; color: var(--primary-color); border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-bottom: 8px; font-size: 14px; text-align: center; }
-        .slot-items { list-style: none; padding: 0; margin: 0; font-size: 13px; color: #333; }
-        .slot-items li { margin-bottom: 4px; border-bottom: 1px dashed #ddd; padding-bottom: 2px; }
-        .slot-items li:last-child { border-bottom: none; }
-        .empty-slot { color: #aaa; text-align: center; font-size: 12px; font-style: italic; }
+        /* منطقة الطباعة المخفية للفواتير */
+        #invoicePrintArea { display: none; padding: 20px; background: white; color: black; font-family: 'Arial', sans-serif;}
+        .print-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;}
+        .print-table { width: 100%; border-collapse: collapse; margin-bottom: 20px;}
+        .print-table th, .print-table td { border: 1px solid #000; padding: 8px; text-align: center; }
+        .print-signatures { display: flex; justify-content: space-between; margin-top: 50px; padding: 0 50px; font-weight: bold;}
 
-        /* تنسيق الأزرار داخل خريطة المخزن (Modal) */
-        .modal-overlay {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.6); z-index: 10000; justify-content: center; align-items: center;
-        }
-        .modal-box {
-            background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 550px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;
-        }
+        /* الخريطة */
+        .map-wrapper { display: flex; gap: 20px; justify-content: center; background: #fff; padding: 20px; border-radius: 12px; border: 1px solid #ddd; flex-wrap: wrap;}
+        .map-col { display: flex; flex-direction: column; gap: 15px; flex: 1; min-width: 250px;}
+        .slot { border: 2px solid #34495e; border-radius: 8px; padding: 10px; cursor: pointer; transition: 0.2s; position: relative; }
+        .slot-title { font-weight: bold; color: var(--primary-color); border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 5px; margin-bottom: 8px; text-align: center; }
+        .slot-items { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+        
+        /* المودال */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; justify-content: center; align-items: center; }
+        .modal-box { background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 550px; max-height: 90vh; overflow-y: auto; }
         .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
-        .close-modal { background: none; border: none; font-size: 24px; color: #e74c3c; cursor: pointer; }
+        .close-modal { background: none; border: none; font-size: 24px; color: var(--danger); cursor: pointer; }
+        .color-picker-wrapper { display: flex; align-items: center; gap: 10px; background: #eef2f3; padding: 5px 15px; border-radius: 50px; }
         
-        .modal-form-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
-        .modal-form-group input, .modal-form-group select { width: 100%; box-sizing: border-box; }
-        .add-to-slot-btn { background: var(--secondary-color); color: white; width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        /* التقارير */
+        .report-cards { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;}
+        .card { flex: 1; min-width: 200px; background: white; padding: 20px; border-radius: 10px; border-right: 5px solid var(--primary-color); box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center;}
         
-        .slot-current-items { margin-top: 20px; }
-        .slot-current-items ul { list-style: none; padding: 0; }
-        .slot-current-items li { display: flex; justify-content: space-between; align-items: center; background: #eee; padding: 10px; margin-bottom: 5px; border-radius: 5px; flex-wrap: wrap; gap: 10px;}
-        
-        .map-action-btns { display: flex; gap: 8px; align-items: center; }
-        .map-action-btns button { background: none; border: none; cursor: pointer; font-size: 16px; padding: 5px; }
-        .map-action-btns .check-btn { color: var(--secondary-color); }
-        .map-action-btns .move-btn { color: #34495e; }
-        .map-action-btns .delete-btn { color: #e74c3c; }
-        
-        .reviewed-map-item { text-decoration: line-through; color: #7f8c8d; opacity: 0.7; }
-
-        footer { margin-top: 40px; text-align: center; padding: 20px; background: rgba(255,255,255,0.8); border-radius: 12px; }
-        .whatsapp-btn { display: inline-flex; align-items: center; gap: 10px; background: #25D366; color: white; padding: 15px 25px; text-decoration: none; border-radius: 50px; font-weight: bold; margin-top: 15px; }
-
         #loadingOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; z-index: 20000; justify-content: center; align-items: center; flex-direction: column; }
         #syncStatus { position: fixed; bottom: 20px; left: 20px; background: #27ae60; color: white; padding: 10px 20px; border-radius: 50px; font-size: 14px; display: none; z-index: 1000; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 
         @media print {
-            .controls-section, .share-btn, .action-btns, th:last-child, td:last-child, .tabs, .copy-text-btn { display: none !important; }
-            body { background: white !important; }
-            .container { box-shadow: none; margin: 0; padding: 0; }
-            .slot { border: 1px solid #000; break-inside: avoid; }
+            body * { visibility: hidden; }
+            #invoicePrintArea, #invoicePrintArea * { visibility: visible; }
+            #invoicePrintArea { position: absolute; left: 0; top: 0; width: 100%; display: block !important; }
+            .container { box-shadow: none; margin: 0; padding: 0; background: transparent;}
         }
     </style>
 </head>
@@ -166,119 +113,206 @@
 
 <div id="loginScreen">
     <div class="login-box">
-        <i class="fas fa-lock fa-3x" style="margin-bottom: 20px;"></i>
-        <h2>مخزن الكراس</h2>
-        <p>برجاء إدخال كلمة المرور</p>
-        <input type="password" id="passInput" placeholder="****">
-        <button onclick="checkLogin()">دخول</button>
-        <p id="errorMsg" style="color: #ff7675; margin-top: 10px; display: none;">الباسورد غلط يا بطل!</p>
+        <i class="fas fa-shield-alt fa-3x" style="margin-bottom: 20px; color: var(--secondary-color);"></i>
+        <h2>نظام إدارة المخازن (ERP)</h2>
+        <p>بوابة الدخول الآمنة</p>
+        <div class="hp-field"><input type="text" id="hp_user_check"></div>
+        <input type="email" id="userEmail" placeholder="البريد الإلكتروني">
+        <input type="password" id="userPass" placeholder="كلمة المرور">
+        <button onclick="handleLogin()">دخول آمن <i class="fas fa-sign-in-alt"></i></button>
+        <p id="errorMsg" style="color: #ff7675; margin-top: 10px; display: none;"></p>
     </div>
 </div>
 
-<div id="loadingOverlay">
-    <i class="fas fa-circle-notch fa-spin fa-3x"></i>
-    <p>جاري استخراج صورة الجرد...</p>
+<div id="loadingOverlay"><i class="fas fa-circle-notch fa-spin fa-3x"></i><p>جاري استخراج التقرير...</p></div>
+<div id="syncStatus"><i class="fas fa-cloud-upload-alt"></i> تم الحفظ بنجاح</div>
+
+<div id="invoicePrintArea">
+    <div class="print-header">
+        <h2>شركة كمال سعد للورق - فرع السيوف</h2>
+        <h3 id="printInvoiceTitle">إذن صرف بضاعة</h3>
+        <p>التاريخ: <span id="printDate"></span> | <span id="printDestLabel">الجهة:</span> <strong id="printDestination"></strong></p>
+    </div>
+    <table class="print-table">
+        <thead><tr><th>م</th><th>الكود</th><th>الصنف</th><th>الكمية</th><th>الوحدة</th></tr></thead>
+        <tbody id="printTableBody"></tbody>
+    </table>
+    <div class="print-signatures">
+        <div>أمين المخزن: ........................</div>
+        <div>توقيع المستلم: ........................</div>
+    </div>
 </div>
 
-<div id="syncStatus"><i class="fas fa-cloud-upload-alt"></i> تم الحفظ السحابي بنجاح</div>
-
-<datalist id="itemNamesList">
-    <option value="كراس 24 مسطر (___)">
-    <option value="كراس 24 صماء">
-    <option value="كراس 24 انجليزي (E)">
-    <option value="كراس 24 مربعات (#)">
-    <option value="كراس 24 9 سطر (9___)">
-    <option value="كراس 24 بياني">
-    <option value="كراس 24 صفحة وصفحة (ص,ص)">
-    <option value="كراس 40 مسطر">
-    <option value="كراس 60 مسطر">
-    <option value="كراس 80 مسطر">
-    <option value="كراس 100 مسطر">
-    <option value="رسم 16">
-    <option value="رسم حضانة">
-    <option value="رسم 40">
-</datalist>
-
-<div class="container" id="printableArea">
+<div class="container" id="mainContainer">
     <header>
+        <button class="logout-btn" onclick="handleLogout()"><i class="fas fa-sign-out-alt"></i> خروج</button>
         <div class="header-content">
             <img src="https://files.catbox.moe/648uuj.jpg" alt="Logo" class="logo-img">
             <div>
-                <h1>نظام إدارة مخزن الكراس</h1>
-                <div class="roles-header">
-                    <i class="fas fa-user-tie"></i> أمين المخزن: <b>علي عبداللطيف</b> | 
-                    <i class="fas fa-user-edit"></i> مساعد أمين المخزن: <b>عبدالرحمن محمد فوزي</b>
-                </div>
+                <h1>نظام إدارة مخازن كمال سعد (ERP)</h1>
+                <div class="roles-header"><i class="fas fa-user-tie"></i> أمين المخزن: <b>علي عبداللطيف</b> | <i class="fas fa-user-edit"></i> مساعد أمين: <b>عبدالرحمن فوزي</b></div>
             </div>
         </div>
     </header>
 
-    <div class="tabs">
+    <div class="tabs no-print">
         <button class="tab-btn active" onclick="switchTab('daily')"><i class="fas fa-list"></i> الجرد اليومي</button>
-        <button class="tab-btn" onclick="switchTab('map')"><i class="fas fa-th"></i> خريطة المخزن (الرصات)</button>
+        <button class="tab-btn" onclick="switchTab('out-invoice')"><i class="fas fa-file-export"></i> الصرف (إذن خروج)</button>
+        <button class="tab-btn" onclick="switchTab('in-invoice')"><i class="fas fa-file-import"></i> الوارد (إذن إضافة)</button>
+        <button class="tab-btn" onclick="switchTab('map')"><i class="fas fa-th"></i> خريطة المخزن</button>
+        <button class="tab-btn" onclick="switchTab('reports')"><i class="fas fa-chart-pie"></i> التقارير والنواقص</button>
     </div>
 
     <div id="tab-daily" class="tab-content active">
         <div class="controls-section">
             <div style="display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 10px;">
                 <div><strong>تاريخ اليوم:</strong> <input type="date" id="inventoryDate"></div>
-                <div class="history-btns">
-                    <button class="copy-btn-names" onclick="copyFromYesterday(false)"><i class="fas fa-list"></i> نسخ أسماء أمس (بدون أعداد)</button>
-                    <button class="copy-btn-full" onclick="copyFromYesterday(true)"><i class="fas fa-copy"></i> نسخ جرد أمس بالكامل</button>
+                <div>
+                    <button class="print-btn" onclick="copyFromYesterday(false)"><i class="fas fa-list"></i> نسخ الأسماء</button>
+                    <button class="print-btn" style="background:#34495e" onclick="copyFromYesterday(true)"><i class="fas fa-copy"></i> نسخ جرد أمس</button>
                 </div>
             </div>
+            
             <div class="input-group">
-                <input type="text" id="itemName" list="itemNamesList" placeholder="أدخل اسم الصنف">
-                <input type="number" id="cartons" placeholder="الكراتين">
-                <input type="number" id="perCarton" placeholder="داخل الكرتونة">
-                <input type="color" id="itemColor" value="#ffffff" title="لون السطر (سيظل ثابتاً)">
+                <input type="text" id="dailyCode" placeholder="الكود (24,40..)" onkeyup="filterItemsByCode('dailyCode', 'dailyItemName')" style="width: 100px;">
+                <select id="dailyItemName"><option value="">اكتب الكود لظهور الأصناف</option></select>
+                <input type="number" id="cartons" placeholder="الكراتين" min="0" step="any">
+                <input type="number" id="perCarton" placeholder="داخل الكرتونة" min="0">
+                <input type="color" id="itemColor" value="#ffffff" title="لون السطر">
                 <button class="add-btn" id="mainActionBtn" onclick="handleMainAction()">إضافة للجرد <i class="fas fa-plus-circle"></i></button>
             </div>
         </div>
 
+        <input type="text" id="searchInput" placeholder="🔍 بحث سريع في الجرد (بالكود أو الاسم)..." style="width: 100%; padding: 12px; margin-bottom: 10px; border-radius:8px; border:1px solid #ccc" onkeyup="filterTable('inventoryTable', 'searchInput')">
+
         <table id="inventoryTable">
             <thead>
                 <tr>
-                    <th>اسم الصنف</th><th>الكراتين</th><th>داخل الكرتونة</th><th>الإجمالي</th><th>تعديل / حذف / مراجعة</th>
+                    <th class="no-print"><i class="fas fa-check-square"></i></th>
+                    <th>الكود</th><th>اسم الصنف</th><th>الكراتين</th><th>داخل الكرتونة</th><th>إجمالي القطع</th><th class="no-print">أكشن</th>
                 </tr>
             </thead>
             <tbody id="tableBody"></tbody>
         </table>
+        
+        <div id="selectionTotalsContainer">
+            <i class="fas fa-calculator"></i> المحددة:
+            <strong><span id="selectedCartonsTotal">0</span> كرتونة</strong> | القطع: <strong><span id="selectedItemsTotal">0</span></strong>
+        </div>
+        <button class="print-btn" style="width:100%; margin-top:15px; background:var(--primary-color)" onclick="captureReport('tab-daily')">حفظ الجرد كصورة <i class="fas fa-image"></i></button>
+    </div>
+
+    <div id="tab-out-invoice" class="tab-content">
+        <div class="controls-section">
+            <h3 style="color: var(--danger)"><i class="fas fa-truck-loading"></i> إنشاء إذن صرف بضاعة</h3>
+            <input type="text" id="outDestination" placeholder="جهة الصرف (محل فنون، الكراس...)" style="width: 100%; padding:10px; margin-bottom: 15px;">
+            
+            <div class="input-group" style="grid-template-columns: 0.8fr 2fr 1fr 1fr 1fr;">
+                <input type="text" id="outCode" placeholder="الكود" onkeyup="filterItemsByCode('outCode', 'outItemName')">
+                <select id="outItemName"><option value="">اكتب الكود...</option></select>
+                <input type="number" id="outQty" placeholder="الكمية" min="0" step="any">
+                <select id="outUnit"><option value="كرتونة">كرتونة</option><option value="قطعة">قطعة</option></select>
+                <button class="add-btn" style="background:var(--danger)" onclick="addToCart('out')">للفاتورة <i class="fas fa-arrow-down"></i></button>
+            </div>
+
+            <div class="invoice-cart out">
+                <h4><i class="fas fa-shopping-cart"></i> سلة المنصرف (إذن الخروج):</h4>
+                <table id="outCartTable">
+                    <thead><tr><th>الكود</th><th>الصنف</th><th>الكمية</th><th>الوحدة</th><th>إزالة</th></tr></thead>
+                    <tbody id="outCartBody"></tbody>
+                </table>
+                <button class="print-btn" onclick="processInvoice('out')" style="width: 100%; margin-top: 15px; background: var(--danger)">تنفيذ الخصم وطباعة إذن الصرف <i class="fas fa-print"></i></button>
+            </div>
+        </div>
+
+        <h3><i class="fas fa-history"></i> سجل حركات الصرف (اليوم)</h3>
+        <table id="outLogsTable">
+            <thead><tr><th>الوقت</th><th>الجهة</th><th>التفاصيل</th></tr></thead>
+            <tbody id="outLogsBody"></tbody>
+        </table>
+    </div>
+
+    <div id="tab-in-invoice" class="tab-content">
+        <div class="controls-section">
+            <h3 style="color: var(--secondary-color)"><i class="fas fa-box-open"></i> إنشاء إذن إضافة (وارد)</h3>
+            <input type="text" id="inSource" placeholder="المصدر (المصنع، مخزن السيوف...)" style="width: 100%; padding:10px; margin-bottom: 15px;">
+            
+            <div class="input-group" style="grid-template-columns: 0.8fr 2fr 1fr 1fr 1fr;">
+                <input type="text" id="inCode" placeholder="الكود" onkeyup="filterItemsByCode('inCode', 'inItemName')">
+                <select id="inItemName"><option value="">اكتب الكود...</option></select>
+                <input type="number" id="inQty" placeholder="الكمية" min="0" step="any">
+                <select id="inUnit"><option value="كرتونة">كرتونة</option><option value="قطعة">قطعة</option></select>
+                <button class="add-btn" onclick="addToCart('in')">لإذن الإضافة <i class="fas fa-arrow-down"></i></button>
+            </div>
+
+            <div class="invoice-cart in">
+                <h4><i class="fas fa-plus-square"></i> سلة الوارد:</h4>
+                <table id="inCartTable">
+                    <thead><tr><th>الكود</th><th>الصنف</th><th>الكمية</th><th>الوحدة</th><th>إزالة</th></tr></thead>
+                    <tbody id="inCartBody"></tbody>
+                </table>
+                <button class="print-btn" onclick="processInvoice('in')" style="width: 100%; margin-top: 15px; background: var(--secondary-color)">إضافة للرصيد وطباعة إذن الوارد <i class="fas fa-print"></i></button>
+            </div>
+        </div>
+
+        <h3><i class="fas fa-history"></i> سجل حركات الوارد (اليوم)</h3>
+        <table id="inLogsTable">
+            <thead><tr><th>الوقت</th><th>المصدر</th><th>التفاصيل</th></tr></thead>
+            <tbody id="inLogsBody"></tbody>
+        </table>
+    </div>
+
+    <div id="tab-reports" class="tab-content">
+        <div class="report-cards">
+            <div class="card" style="border-color: var(--danger)">
+                <h3>إجمالي أذونات الصرف اليوم</h3>
+                <h2 id="repOutTotal" style="color: var(--danger)">0</h2>
+            </div>
+            <div class="card" style="border-color: var(--secondary-color)">
+                <h3>إجمالي أذونات الوارد اليوم</h3>
+                <h2 id="repInTotal" style="color: var(--secondary-color)">0</h2>
+            </div>
+            <div class="card" style="border-color: var(--info)">
+                <h3>إصناف في حد الخطر (نواقص)</h3>
+                <h2 id="repShortagesTotal" style="color: var(--info)">0</h2>
+            </div>
+        </div>
+
+        <div class="controls-section">
+            <h3 style="color: var(--danger); margin-top:0"><i class="fas fa-exclamation-triangle"></i> قائمة النواقص (أرصدة أقل من 5 كراتين)</h3>
+            <table id="shortagesTable">
+                <thead><tr style="background: var(--danger)"><th>الكود</th><th>الصنف</th><th>الرصيد المتبقي</th></tr></thead>
+                <tbody id="shortagesBody"></tbody>
+            </table>
+            <button class="print-btn" style="width:100%; margin-top:15px;" onclick="captureReport('tab-reports')">حفظ قائمة النواقص <i class="fas fa-download"></i></button>
+        </div>
     </div>
 
     <div id="tab-map" class="tab-content">
-        <div class="controls-section" style="text-align: center; margin-bottom: 15px;">
-            <p><i class="fas fa-info-circle"></i> اضغط على أي خانة لإضافة، ترتيب، أو تعديل الأصناف بداخلها.</p>
+        <div class="controls-section" style="display:flex; justify-content: space-between; align-items:center; flex-wrap: wrap; gap: 10px;">
+            <p style="margin: 0;"><i class="fas fa-info-circle"></i> اضغط على أي خانة لإضافة، ترتيب، تلوين أو تعديل الأصناف.</p>
+            <button class="print-btn" style="background:#34495e" onclick="copyMapFromYesterday()"><i class="fas fa-clone"></i> نسخ خريطة أمس (جاهزة للمراجعة)</button>
         </div>
-        
-        <div class="map-wrapper" id="warehouseMapUI">
-            </div>
+        <div class="map-wrapper" id="warehouseMapUI"></div>
     </div>
 
-    <button class="share-btn" onclick="captureReport()">
-        <i class="fas fa-file-download"></i> حفظ ومشاركة الصفحة الحالية كصورة
-    </button>
-
-    <footer>
-        <p><b>تصميم وتطوير:</b> عبدالرحمن محمد فوزي (مساعد أمين مخزن)</p>
-        <a href="https://wa.me/201285577074" class="whatsapp-btn">
-            <i class="fab fa-whatsapp"></i> واتساب: 01285577074
-        </a>
-    </footer>
 </div>
 
 <div class="modal-overlay" id="slotModal">
     <div class="modal-box">
         <div class="modal-header">
             <h3 id="modalSlotTitle">تعديل الخانة</h3>
+            <div class="color-picker-wrapper">
+                <input type="color" id="slotColorPicker" onchange="changeSlotColor()">
+            </div>
             <button class="close-modal" onclick="closeSlotModal()">&times;</button>
         </div>
         
         <div class="modal-form-group">
-            <label>إضافة صنف جديد للخانة:</label>
-            <input type="text" id="slotItemName" list="itemNamesList" placeholder="اسم الصنف (مثال: كراس 24 مسطر)">
+            <input type="text" id="slotCode" placeholder="كود الصنف" onkeyup="filterItemsByCode('slotCode', 'slotItemName')" style="width:100%; padding:10px; margin-bottom:5px">
+            <select id="slotItemName" style="width:100%; padding:10px; margin-bottom:10px"><option value="">اكتب الكود...</option></select>
             <div style="display: flex; gap: 10px;">
-                <input type="number" id="slotItemQty" placeholder="العدد" style="flex: 1;">
+                <input type="number" id="slotItemQty" placeholder="العدد" style="flex: 1;" min="0" step="any">
                 <select id="slotItemUnit" style="flex: 1;">
                     <option value="بالتة">بالتة كاملة</option>
                     <option value="نص بالتة">نص بالتة</option>
@@ -286,395 +320,337 @@
                     <option value="كرتونة">كرتونة</option>
                     <option value="رصة">رصة</option>
                 </select>
+                <input type="color" id="slotItemColor" value="#ffffff" title="لون الصنف (اختياري)">
             </div>
-            <button class="add-to-slot-btn" onclick="addItemToSlot()"><i class="fas fa-plus"></i> إضافة للخانة</button>
+            <button class="add-btn" id="slotMainBtn" onclick="handleAddOrEditSlotItem()" style="margin-top:10px"><i class="fas fa-plus"></i> إضافة للرصة</button>
         </div>
 
         <div class="slot-current-items">
-            <h4>الأصناف الموجودة حالياً (رتب أو راجع):</h4>
+            <h4>الأصناف في هذه الرصة:</h4>
             <ul id="slotItemsListUI"></ul>
         </div>
     </div>
 </div>
 
 <script>
-    // --- إعدادات Firebase ---
+    // --- Configuration ---
     const firebaseConfig = {
       apiKey: "AIzaSyDgwdBexMXQepqc7HVGL5tUDXU2JHOcuFg",
       authDomain: "kmskoras.firebaseapp.com",
       projectId: "kmskoras",
-      storageBucket: "kmskoras.firebasestorage.app",
-      messagingSenderId: "486048926991",
-      appId: "1:486048926991:web:e1dbadf4fca54a9eef827a",
-      measurementId: "G-1KBYWCJ4V3",
       databaseURL: "https://kmskoras-default-rtdb.europe-west1.firebasedatabase.app"
     };
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    const db = firebase.database(); const auth = firebase.auth();
 
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    const db = firebase.database();
+    const TELEGRAM_BOT_TOKEN = "8125902090:AAELDfYT8h_4Q2bJX3183KbSmJfHezDnFkI";
+    const TELEGRAM_CHAT_ID = "5499273828";
 
-    // --- المتغيرات الأساسية ---
+    // قاعدة بيانات الأكواد الذكية
+    const itemCodesDB = {
+        "24": ["كراس 24 مسطر (___)", "كراس 24 صماء", "كراس 24 انجليزي (E)", "كراس 24 مربعات (#)", "كراس 24 9 سطر (9___)", "كراس 24 بياني", "كراس 24 صفحة وصفحة (ص,ص)"],
+        "28": ["كراس 28 مسطر (___)", "كراس 28 صماء", "كراس 28 انجليزي (E)", "كراس 28 مربعات (#)", "كراس 28 9 سطر (9___)"],
+        "40": ["كراس 40 مسطر (___)", "كراس 40 انجليزي (E)", "كراس 40 مربعات (#)", "كراس 40 صماء"],
+        "60": ["كراس 60 مسطر (___)", "كراس 60 انجليزي (E)", "كراس 60 مربعات (#)"],
+        "80": ["كراس 80 مسطر (___)", "كراس 80 انجليزي (E)", "كراس 80 مربعات (#)"],
+        "100": ["كراس 100 مسطر (___)", "كراس 100 انجليزي (E)", "كراس 100 مربعات (#)"],
+        "16": ["رسم 16"],
+        "00": ["رسم حضانة"],
+        "40ر": ["رسم 40"],
+        "60ر": ["رسم 60"]
+    };
+
     const dateInput = document.getElementById('inventoryDate');
-    const mainBtn = document.getElementById('mainActionBtn');
     dateInput.value = new Date().toISOString().split('T')[0];
 
-    let inventoryData = {}; 
-    let mapData = {}; 
-    let editIndex = null;
-    let currentInventoryListenerRef = null;
-    let currentMapListenerRef = null;
-    let currentActiveSlotId = null; 
+    // Variables
+    let inventoryData = {}; let mapData = {}; 
+    let logsOut = {}; let logsIn = {};
+    let cartOut = []; let cartIn = [];
+    let editIndex = null; let slotEditIndex = null; let currentActiveSlotId = null; 
+    let currentInventoryListenerRef, currentMapListenerRef, currentLogsOutRef, currentLogsInRef;
 
-    const mapStructure = [
-        { id: "col_right", count: 5 },
-        { id: "col_center", count: 5 },
-        { id: "col_left", count: 8 }
-    ];
+    const mapStructure = [{ id: "col_right", count: 5 }, { id: "col_center", count: 5 }, { id: "col_left", count: 8 }];
 
-    // --- التبويبات ---
-    function switchTab(tabId) {
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        
-        event.target.classList.add('active');
-        document.getElementById('tab-' + tabId).classList.add('active');
+    // --- Authentication & Initialization ---
+    dateInput.addEventListener('change', () => attachFirebaseListeners(dateInput.value));
+
+    async function notifyTelegram(msg) {
+        fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({chat_id: TELEGRAM_CHAT_ID, text: msg, parse_mode: 'Markdown'}) }).catch(e=>console.error(e));
     }
-
-    // --- نظام الباسورد ---
-    function checkLogin() {
-        const pass = document.getElementById('passInput').value;
-        const error = document.getElementById('errorMsg');
-        if(pass === "1404") {
-            document.getElementById('loginScreen').style.display = 'none';
-        } else {
-            error.style.display = 'block';
-            document.getElementById('passInput').value = '';
-        }
+    async function getUserIP() { try { const r=await fetch('https://api.ipify.org?format=json'); const d=await r.json(); return d.ip; } catch(e){ return "مجهول"; } }
+    
+    async function handleLogin() {
+        const e=document.getElementById('userEmail').value, p=document.getElementById('userPass').value, hp=document.getElementById('hp_user_check').value, err=document.getElementById('errorMsg');
+        if(hp!=="") return notifyTelegram(`🚫 محاولة بوت\nIP: ${await getUserIP()}`);
+        if(!e||!p) { err.innerText="أكمل البيانات"; err.style.display='block'; return; }
+        try { await auth.signInWithEmailAndPassword(e, p); notifyTelegram(`✅ دخول النظام\n${e}\nIP: ${await getUserIP()}`); } 
+        catch(ex) { err.innerText="بيانات خاطئة"; err.style.display='block'; notifyTelegram(`⚠️ محاولة فاشلة\n${e}\n${ex.message}`); }
     }
-    document.getElementById('passInput').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') { checkLogin(); }
+    function handleLogout() { auth.signOut(); }
+    
+    auth.onAuthStateChanged(user => {
+        if(user) { document.getElementById('loginScreen').style.display='none'; document.getElementById('mainContainer').style.display='block'; attachFirebaseListeners(dateInput.value); }
+        else { document.getElementById('loginScreen').style.display='flex'; document.getElementById('mainContainer').style.display='none'; }
     });
 
-    // --- الاستماع لقاعدة البيانات ---
+    // --- Core Functions ---
+    function sanitizeInput(str) { return str ? str.replace(/[&<>'"]/g, t => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[t])) : ''; }
+    function switchTab(tab) {
+        document.querySelectorAll('.tab-btn, .tab-content').forEach(e => e.classList.remove('active'));
+        event.target.classList.add('active'); document.getElementById('tab-'+tab).classList.add('active');
+        if(tab === 'reports') renderReports();
+    }
+    function showSync() { const s=document.getElementById('syncStatus'); s.style.display='block'; setTimeout(()=>s.style.display='none',2000); }
+
+    function filterItemsByCode(inpId, selId) {
+        const c = document.getElementById(inpId).value.trim();
+        const sel = document.getElementById(selId);
+        sel.innerHTML = '<option value="">اختر الصنف...</option>';
+        if(itemCodesDB[c]) { itemCodesDB[c].forEach(n => sel.innerHTML += `<option value="${n}">${n}</option>`); }
+        else if(c==="") { sel.innerHTML = '<option value="">اكتب الكود لظهور الأصناف</option>'; }
+        else { sel.innerHTML = '<option value="">(كود غير مسجل)</option>'; }
+    }
+
+    function filterTable(tabId, inpId) {
+        const term = document.getElementById(inpId).value.toUpperCase();
+        const rows = document.getElementById(tabId).getElementsByTagName('tr');
+        for(let i=1; i<rows.length; i++) {
+            const tdName = rows[i].getElementsByTagName('td')[2]; // عمود الاسم
+            const tdCode = rows[i].getElementsByTagName('td')[1]; // عمود الكود
+            if(tdName || tdCode) {
+                const txt = (tdName.textContent||'') + " " + (tdCode.textContent||'');
+                rows[i].style.display = txt.toUpperCase().indexOf(term)>-1 ? "" : "none";
+            }
+        }
+    }
+
+    // --- Listeners ---
     function attachFirebaseListeners(date) {
-        // 1. بيانات الجرد
-        if (currentInventoryListenerRef) currentInventoryListenerRef.off();
-        currentInventoryListenerRef = db.ref('inventory/' + date);
-        currentInventoryListenerRef.on('value', (snapshot) => {
-            inventoryData[date] = snapshot.val() || [];
-            renderInventoryTable();
-        });
+        if(currentInventoryListenerRef) currentInventoryListenerRef.off();
+        currentInventoryListenerRef = db.ref('inventory/'+date);
+        currentInventoryListenerRef.on('value', s => { inventoryData[date] = s.val()||[]; renderInventoryTable(); if(document.getElementById('tab-reports').classList.contains('active')) renderReports(); });
 
-        // 2. بيانات الخريطة
-        if (currentMapListenerRef) currentMapListenerRef.off();
-        currentMapListenerRef = db.ref('warehouseMap/' + date);
-        currentMapListenerRef.on('value', (snapshot) => {
-            mapData[date] = snapshot.val() || initializeEmptyMap();
-            renderMapUI();
-            if (document.getElementById('slotModal').style.display === 'flex' && currentActiveSlotId) {
-                renderModalCurrentItems(); // تحديث النافذة لو مفتوحة
-            }
-        });
+        if(currentMapListenerRef) currentMapListenerRef.off();
+        currentMapListenerRef = db.ref('warehouseMap/'+date);
+        currentMapListenerRef.on('value', s => { mapData[date] = s.val()||initializeEmptyMap(); renderMapUI(); });
+
+        if(currentLogsOutRef) currentLogsOutRef.off();
+        currentLogsOutRef = db.ref('logsOut/'+date);
+        currentLogsOutRef.on('value', s => { logsOut[date] = s.val()||[]; renderLogsTable('out'); });
+
+        if(currentLogsInRef) currentLogsInRef.off();
+        currentLogsInRef = db.ref('logsIn/'+date);
+        currentLogsInRef.on('value', s => { logsIn[date] = s.val()||[]; renderLogsTable('in'); });
     }
 
-    function initializeEmptyMap() {
-        let emptyMap = {};
-        let slotCounter = 1;
-        mapStructure.forEach(col => {
-            for(let i=0; i<col.count; i++) {
-                emptyMap['slot_' + slotCounter] = []; 
-                slotCounter++;
-            }
-        });
-        return emptyMap;
-    }
-
-    // --- الحفظ السحابي ---
-    function saveInventoryToFirebase() {
-        const selectedDate = dateInput.value;
-        db.ref('inventory/' + selectedDate).set(inventoryData[selectedDate]).then(showSyncStatus);
-    }
-
-    function saveMapToFirebase() {
-        const selectedDate = dateInput.value;
-        db.ref('warehouseMap/' + selectedDate).set(mapData[selectedDate]).then(showSyncStatus);
-    }
-
-    function showSyncStatus() {
-        const syncMsg = document.getElementById('syncStatus');
-        syncMsg.style.display = 'block';
-        setTimeout(() => { syncMsg.style.display = 'none'; }, 2000);
-    }
-
-    // ==========================================
-    // قسم الجرد اليومي
-    // ==========================================
+    // --- 1. Daily Inventory ---
     function renderInventoryTable() {
-        const selectedDate = dateInput.value;
-        const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = '';
-        const items = inventoryData[selectedDate] || [];
-
-        items.forEach((item, index) => {
-            const row = document.createElement('tr');
-            row.style.backgroundColor = (item.color || "#ffffff") + "33"; 
-            row.style.borderRight = `6px solid ${item.color || "#ffffff"}`;
-            if (item.isReviewed) row.classList.add('reviewed');
-
-            row.innerHTML = `
-                <td>
-                    <div class="item-name-cell">
-                        <span>${item.name}</span>
-                        <button class="copy-text-btn" onclick="copyToClipboard('${item.name}')" title="نسخ الاسم"><i class="fas fa-copy"></i></button>
-                    </div>
-                </td>
-                <td>${item.cartons || 0}</td>
-                <td>${item.perCarton || 0}</td>
-                <td>${(item.cartons || 0) * (item.perCarton || 0)}</td>
-                <td class="action-btns">
-                    <button class="check-btn" onclick="toggleReview(${index})" title="تمت المراجعة"><i class="fas fa-check-double"></i></button>
-                    <button class="move-btn" onclick="moveItem(${index}, -1)" title="نقل لأعلى"><i class="fas fa-arrow-up"></i></button>
-                    <button class="move-btn" onclick="moveItem(${index}, 1)" title="نقل لأسفل"><i class="fas fa-arrow-down"></i></button>
-                    <button class="edit-row-btn" onclick="prepareEdit(${index})"><i class="fas fa-edit"></i></button>
-                    <button class="delete-btn" onclick="deleteItem(${index})"><i class="fas fa-trash-alt"></i></button>
-                </td>
-            `;
-            tbody.appendChild(row);
+        const tbody = document.getElementById('tableBody'); tbody.innerHTML='';
+        (inventoryData[dateInput.value]||[]).forEach((item, i) => {
+            const tr = document.createElement('tr');
+            if(item.color && item.color!=='#ffffff') { tr.style.backgroundColor=item.color+"33"; tr.style.borderRight=`6px solid ${item.color}`; }
+            if(item.isReviewed) tr.classList.add('reviewed');
+            tr.innerHTML = `
+                <td class="no-print"><input type="checkbox" class="row-checkbox" value="${i}" onchange="calculateSelected()"></td>
+                <td style="font-weight:bold">[${item.code||'--'}]</td>
+                <td><div class="item-name-cell">${item.name} <button class="action-btns no-print" onclick="navigator.clipboard.writeText('${item.name}')"><i class="fas fa-copy"></i></button></div></td>
+                <td>${item.cartons}</td><td>${item.perCarton}</td><td>${Math.round(item.cartons * item.perCarton)}</td>
+                <td class="action-btns no-print">
+                    <button onclick="toggleReview(${i})" style="color:var(--secondary-color)"><i class="fas fa-check-double"></i></button>
+                    <button onclick="moveItem(${i},-1)" style="color:#555"><i class="fas fa-arrow-up"></i></button>
+                    <button onclick="moveItem(${i},1)" style="color:#555"><i class="fas fa-arrow-down"></i></button>
+                    <button onclick="prepEdit(${i})" style="color:var(--edit-color)"><i class="fas fa-edit"></i></button>
+                    <button onclick="delItem(${i})" style="color:var(--danger)"><i class="fas fa-trash"></i></button>
+                </td>`;
+            tbody.appendChild(tr);
         });
+        calculateSelected();
     }
 
     function handleMainAction() {
-        const name = document.getElementById('itemName').value;
-        const cartons = document.getElementById('cartons').value;
-        const perCarton = document.getElementById('perCarton').value;
-        const color = document.getElementById('itemColor').value;
-        const selectedDate = dateInput.value;
+        const code = document.getElementById('dailyCode').value;
+        const name = document.getElementById('dailyItemName').value;
+        const c = parseFloat(document.getElementById('cartons').value);
+        const pc = parseInt(document.getElementById('perCarton').value);
+        const col = document.getElementById('itemColor').value;
+        if(!name) return alert("اختر الصنف!"); if(isNaN(c)) return alert("أدخل رقم للكراتين!");
 
-        if(!name) return alert("أدخل اسم الصنف على الأقل");
-        if(!inventoryData[selectedDate]) inventoryData[selectedDate] = [];
-
-        if(editIndex === null) {
-            inventoryData[selectedDate].push({ name, cartons, perCarton, color, isReviewed: false });
-        } else {
-            inventoryData[selectedDate][editIndex] = { ...inventoryData[selectedDate][editIndex], name, cartons, perCarton, color };
-            editIndex = null;
-            mainBtn.innerHTML = 'إضافة للجرد <i class="fas fa-plus-circle"></i>';
-            mainBtn.classList.remove('edit-mode-btn');
-        }
-        document.getElementById('itemName').value = '';
-        document.getElementById('cartons').value = '';
-        document.getElementById('perCarton').value = '';
-        saveInventoryToFirebase();
+        let arr = inventoryData[dateInput.value] || [];
+        if(editIndex===null) { arr.push({code, name, cartons:c, perCarton:pc||0, color:col, isReviewed:false}); }
+        else { arr[editIndex] = {...arr[editIndex], code, name, cartons:c, perCarton:pc||0, color:col}; editIndex=null; document.getElementById('mainActionBtn').innerHTML='إضافة للجرد <i class="fas fa-plus"></i>'; }
+        
+        db.ref('inventory/'+dateInput.value).set(arr).then(showSync);
+        document.getElementById('dailyCode').value=''; document.getElementById('dailyItemName').innerHTML='<option>اكتب الكود...</option>'; document.getElementById('cartons').value=''; document.getElementById('perCarton').value='';
     }
-
-    function toggleReview(index) {
-        inventoryData[dateInput.value][index].isReviewed = !inventoryData[dateInput.value][index].isReviewed;
-        saveInventoryToFirebase();
+    function prepEdit(i) {
+        const item=inventoryData[dateInput.value][i];
+        document.getElementById('dailyCode').value = item.code||''; filterItemsByCode('dailyCode', 'dailyItemName');
+        setTimeout(()=>document.getElementById('dailyItemName').value = item.name, 50);
+        document.getElementById('cartons').value = item.cartons; document.getElementById('perCarton').value = item.perCarton; document.getElementById('itemColor').value = item.color||'#ffffff';
+        editIndex=i; document.getElementById('mainActionBtn').innerHTML='حفظ <i class="fas fa-save"></i>';
     }
-    
-    function moveItem(index, direction) {
-        const items = inventoryData[dateInput.value];
-        const newIndex = index + direction;
-        if (newIndex >= 0 && newIndex < items.length) {
-            const temp = items[index];
-            items[index] = items[newIndex];
-            items[newIndex] = temp;
-            saveInventoryToFirebase();
-        }
-    }
-
-    function prepareEdit(index) {
-        const item = inventoryData[dateInput.value][index];
-        document.getElementById('itemName').value = item.name;
-        document.getElementById('cartons').value = item.cartons;
-        document.getElementById('perCarton').value = item.perCarton;
-        document.getElementById('itemColor').value = item.color || "#ffffff";
-        editIndex = index;
-        mainBtn.innerHTML = 'حفظ التعديلات <i class="fas fa-check-double"></i>';
-        mainBtn.classList.add('edit-mode-btn');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    function deleteItem(index) {
-        if(confirm("هل تريد حذف هذا البند من الجرد اليومي؟")) {
-            inventoryData[dateInput.value].splice(index, 1);
-            saveInventoryToFirebase();
-        }
+    function delItem(i) { if(confirm("حذف؟")) { inventoryData[dateInput.value].splice(i,1); db.ref('inventory/'+dateInput.value).set(inventoryData[dateInput.value]); } }
+    function toggleReview(i) { inventoryData[dateInput.value][i].isReviewed = !inventoryData[dateInput.value][i].isReviewed; db.ref('inventory/'+dateInput.value).set(inventoryData[dateInput.value]); }
+    function moveItem(i, dir) { const arr=inventoryData[dateInput.value], ni=i+dir; if(ni>=0 && ni<arr.length) { [arr[i], arr[ni]]=[arr[ni], arr[i]]; db.ref('inventory/'+dateInput.value).set(arr); } }
+    function calculateSelected() {
+        let tc=0, ti=0, cnt=0;
+        document.querySelectorAll('.row-checkbox:checked').forEach(cb => { cnt++; const item=inventoryData[dateInput.value][cb.value]; tc+=parseFloat(item.cartons); ti+=(item.cartons*item.perCarton); });
+        const c=document.getElementById('selectionTotalsContainer');
+        if(cnt>0){ c.style.display='block'; document.getElementById('selectedCartonsTotal').innerText=tc.toFixed(2); document.getElementById('selectedItemsTotal').innerText=Math.round(ti); } else c.style.display='none';
     }
 
     function copyFromYesterday(includeNumbers) {
-        const d = new Date(dateInput.value); d.setDate(d.getDate() - 1);
-        const yesterday = d.toISOString().split('T')[0];
-        
-        db.ref('inventory/' + yesterday).once('value').then((snapshot) => {
-            const yesterdayItems = snapshot.val();
-            if(yesterdayItems && yesterdayItems.length > 0) {
-                inventoryData[dateInput.value] = yesterdayItems.map(item => ({
-                    name: item.name, cartons: includeNumbers ? item.cartons : "", perCarton: includeNumbers ? item.perCarton : "", color: item.color || "#ffffff", isReviewed: false 
-                }));
-                saveInventoryToFirebase();
-                alert(includeNumbers ? "تم نسخ جرد أمس." : "تم نسخ الأسماء فقط.");
-            } else { alert("لا توجد بيانات لتاريخ أمس!"); }
+        const d = new Date(dateInput.value); d.setDate(d.getDate()-1);
+        db.ref('inventory/'+d.toISOString().split('T')[0]).once('value').then(s=>{
+            if(!s.val()) return alert("لا داتا لأمس");
+            inventoryData[dateInput.value] = s.val().map(i => ({...i, cartons: includeNumbers?i.cartons:0, isReviewed:false}));
+            db.ref('inventory/'+dateInput.value).set(inventoryData[dateInput.value]).then(showSync); alert("تم النسخ!");
         });
     }
 
-    // ==========================================
-    // قسم خريطة المخزن (الجديد والمعدل)
-    // ==========================================
-    function renderMapUI() {
-        const wrapper = document.getElementById('warehouseMapUI');
-        wrapper.innerHTML = '';
-        const selectedDate = dateInput.value;
-        const currentMap = mapData[selectedDate] || {};
+    // --- 2 & 3. Invoices (Cart system) ---
+    function addToCart(type) {
+        const code = document.getElementById(type+'Code').value;
+        const name = document.getElementById(type+'ItemName').value;
+        const qty = parseFloat(document.getElementById(type+'Qty').value);
+        const unit = document.getElementById(type+'Unit').value;
+        if(!name || isNaN(qty) || qty<=0) return alert("بيانات الصنف غير مكتملة!");
+        
+        (type==='out'?cartOut:cartIn).push({code, name, qty, unit});
+        renderCartTable(type);
+        document.getElementById(type+'Code').value=''; document.getElementById(type+'ItemName').innerHTML='<option>اكتب الكود...</option>'; document.getElementById(type+'Qty').value='';
+    }
+    function renderCartTable(type) {
+        const tb = document.getElementById(type+'CartBody'); tb.innerHTML='';
+        (type==='out'?cartOut:cartIn).forEach((item, i) => {
+            tb.innerHTML += `<tr><td>[${item.code||'-'}]</td><td>${item.name}</td><td>${item.qty}</td><td>${item.unit}</td><td><button onclick="delCart('${type}',${i})" style="color:var(--danger);border:none;background:none"><i class="fas fa-times"></i></button></td></tr>`;
+        });
+    }
+    function delCart(type, i) { (type==='out'?cartOut:cartIn).splice(i,1); renderCartTable(type); }
 
-        let globalSlotCounter = 1;
+    function processInvoice(type) {
+        const cart = type==='out'?cartOut:cartIn;
+        const dest = document.getElementById(type==='out'?'outDestination':'inSource').value;
+        if(cart.length===0) return alert("الفاتورة فارغة!"); if(!dest) return alert("اكتب الجهة / المصدر!");
 
-        mapStructure.forEach(colDef => {
-            const colDiv = document.createElement('div');
-            colDiv.className = 'map-col';
-            
-            for(let i = 0; i < colDef.count; i++) {
-                const slotId = 'slot_' + globalSlotCounter;
-                const itemsInSlot = currentMap[slotId] || [];
-                
-                const slotDiv = document.createElement('div');
-                slotDiv.className = 'slot';
-                slotDiv.onclick = () => openSlotModal(slotId, globalSlotCounter - 1); 
-                
-                let itemsHTML = '';
-                if(itemsInSlot.length === 0) {
-                    itemsHTML = '<div class="empty-slot">الخانة فارغة</div>';
-                } else {
-                    itemsHTML = '<ul class="slot-items">';
-                    itemsInSlot.forEach(item => {
-                        // إضافة كلاس الشطب لو الصنف متراجع
-                        const reviewedClass = item.isReviewed ? 'reviewed-map-item' : '';
-                        itemsHTML += `<li class="${reviewedClass}"><b>${item.qty} ${item.unit}</b> - ${item.name}</li>`;
-                    });
-                    itemsHTML += '</ul>';
-                }
+        let inv = inventoryData[dateInput.value] || [];
+        let detailsArr = [];
 
-                slotDiv.innerHTML = `
-                    <div class="slot-title">خانة رقم ${globalSlotCounter}</div>
-                    ${itemsHTML}
-                `;
-                
-                colDiv.appendChild(slotDiv);
-                globalSlotCounter++;
+        for(let cItem of cart) {
+            let invItem = inv.find(x => x.name === cItem.name);
+            if(!invItem && type==='out') return alert(`الصنف ${cItem.name} غير موجود بالجرد لخصمه!`);
+            if(!invItem && type==='in') {
+                invItem = { code: cItem.code, name: cItem.name, cartons: 0, perCarton: parseInt(prompt(`كم قطعة داخل الكرتونة لـ ${cItem.name}؟`))||1, color: '#ffffff' };
+                inv.push(invItem);
             }
-            wrapper.appendChild(colDiv);
-        });
-    }
-
-    function openSlotModal(slotId, displayNum) {
-        currentActiveSlotId = slotId;
-        document.getElementById('modalSlotTitle').innerText = 'تعديل الخانة رقم ' + (displayNum + 1);
-        document.getElementById('slotItemName').value = '';
-        document.getElementById('slotItemQty').value = '';
-        renderModalCurrentItems();
-        document.getElementById('slotModal').style.display = 'flex';
-    }
-
-    function closeSlotModal() {
-        document.getElementById('slotModal').style.display = 'none';
-        currentActiveSlotId = null;
-    }
-
-    function renderModalCurrentItems() {
-        const listUI = document.getElementById('slotItemsListUI');
-        listUI.innerHTML = '';
-        const items = mapData[dateInput.value][currentActiveSlotId] || [];
-        
-        items.forEach((item, index) => {
-            const li = document.createElement('li');
-            if (item.isReviewed) li.classList.add('reviewed-map-item');
             
-            // إضافة جميع الأزرار للصنف داخل الخريطة
-            li.innerHTML = `
-                <span><b>${item.qty} ${item.unit}</b> - ${item.name}</span>
-                <div class="map-action-btns">
-                    <button class="check-btn" onclick="toggleMapItemReview(event, ${index})" title="تمت المراجعة"><i class="fas fa-check-double"></i></button>
-                    <button class="move-btn" onclick="moveMapItem(event, ${index}, -1)" title="نقل لأعلى"><i class="fas fa-arrow-up"></i></button>
-                    <button class="move-btn" onclick="moveMapItem(event, ${index}, 1)" title="نقل لأسفل"><i class="fas fa-arrow-down"></i></button>
-                    <button class="delete-btn" onclick="deleteItemFromSlot(event, ${index})" title="حذف"><i class="fas fa-trash-alt"></i></button>
-                </div>
-            `;
-            listUI.appendChild(li);
+            let deductCartons = cItem.unit === 'قطعة' ? (cItem.qty / invItem.perCarton) : cItem.qty;
+            
+            if(type==='out') {
+                if(invItem.cartons < deductCartons) return alert(`رصيد ${cItem.name} لا يكفي! المتاح ${invItem.cartons}`);
+                invItem.cartons = parseFloat((invItem.cartons - deductCartons).toFixed(2));
+            } else {
+                invItem.cartons = parseFloat((invItem.cartons + deductCartons).toFixed(2));
+            }
+            detailsArr.push(`${cItem.qty} ${cItem.unit} (${cItem.name})`);
+        }
+
+        // Save Inventory
+        db.ref('inventory/'+dateInput.value).set(inv);
+
+        // Save Log
+        const log = { time: new Date().toLocaleTimeString('ar-EG'), dest, details: detailsArr.join(' | ') };
+        let logsArr = (type==='out'?logsOut[dateInput.value]:logsIn[dateInput.value]) || [];
+        logsArr.push(log);
+        db.ref((type==='out'?'logsOut/':'logsIn/')+dateInput.value).set(logsArr);
+
+        // Telegram
+        notifyTelegram(`📑 إذن ${type==='out'?'صرف':'وارد'} جديد\nالجهة: ${dest}\nالتفاصيل: ${log.details}`);
+
+        // Print
+        document.getElementById('printInvoiceTitle').innerText = type==='out'?'إذن صرف بضاعة':'إذن إضافة (وارد)';
+        document.getElementById('printDestLabel').innerText = type==='out'?'جهة الصرف:':'المصدر:';
+        document.getElementById('printDate').innerText = new Date().toLocaleString('ar-EG');
+        document.getElementById('printDestination').innerText = dest;
+        const pt = document.getElementById('printTableBody'); pt.innerHTML='';
+        cart.forEach((c, i) => pt.innerHTML+=`<tr><td>${i+1}</td><td>${c.code||'-'}</td><td>${c.name}</td><td>${c.qty}</td><td>${c.unit}</td></tr>`);
+        window.print();
+
+        // Clear
+        if(type==='out') cartOut=[]; else cartIn=[]; renderCartTable(type); document.getElementById(type==='out'?'outDestination':'inSource').value='';
+    }
+
+    function renderLogsTable(type) {
+        const tb = document.getElementById(type+'LogsBody'); tb.innerHTML='';
+        const arr = (type==='out'?logsOut[dateInput.value]:logsIn[dateInput.value]) || [];
+        arr.forEach(l => tb.innerHTML+=`<tr><td>${l.time}</td><td>${l.dest}</td><td style="font-size:13px">${l.details}</td></tr>`);
+    }
+
+    // --- 4. Reports ---
+    function renderReports() {
+        const outL = logsOut[dateInput.value]||[]; document.getElementById('repOutTotal').innerText = outL.length + " إذن";
+        const inL = logsIn[dateInput.value]||[]; document.getElementById('repInTotal').innerText = inL.length + " إذن";
+
+        const tb = document.getElementById('shortagesBody'); tb.innerHTML='';
+        let sCount=0;
+        (inventoryData[dateInput.value]||[]).forEach(i => {
+            if(i.cartons <= 5) { sCount++; tb.innerHTML+=`<tr><td>${i.code||'-'}</td><td>${i.name}</td><td><strong>${i.cartons}</strong> ك</td></tr>`; }
+        });
+        document.getElementById('repShortagesTotal').innerText = sCount + " صنف";
+    }
+
+    // --- 5. Map ---
+    function initializeEmptyMap() { let e={}; let c=1; mapStructure.forEach(col=>{ for(let i=0;i<col.count;i++){ e['slot_'+c]={items:[], color:'#fdfdfd'}; c++; }}); return e; }
+    function copyMapFromYesterday() {
+        const d = new Date(dateInput.value); d.setDate(d.getDate()-1);
+        db.ref('warehouseMap/'+d.toISOString().split('T')[0]).once('value').then(s=>{
+            if(!s.val()) return alert("لا خريطة لأمس");
+            let m=initializeEmptyMap();
+            for(let k in s.val()) { let sd=JSON.parse(JSON.stringify(s.val()[k])); if(Array.isArray(sd)) sd={items:sd, color:'#fdfdfd'}; if(sd.items) sd.items.forEach(i=>i.isReviewed=false); m[k]=sd; }
+            db.ref('warehouseMap/'+dateInput.value).set(m).then(showSync); alert("تم نسخ الخريطة!");
         });
     }
-
-    function addItemToSlot() {
-        const name = document.getElementById('slotItemName').value;
-        const qty = document.getElementById('slotItemQty').value;
-        const unit = document.getElementById('slotItemUnit').value;
-
-        if(!name || !qty) return alert("يرجى إدخال اسم الصنف والعدد!");
-
-        if(!mapData[dateInput.value][currentActiveSlotId]) {
-            mapData[dateInput.value][currentActiveSlotId] = [];
-        }
-        
-        mapData[dateInput.value][currentActiveSlotId].push({ name, qty, unit, isReviewed: false });
-        saveMapToFirebase();
-        
-        document.getElementById('slotItemName').value = '';
-        document.getElementById('slotItemQty').value = '';
+    function renderMapUI() {
+        const w = document.getElementById('warehouseMapUI'); w.innerHTML='';
+        const m = mapData[dateInput.value]||initializeEmptyMap(); let c=1;
+        mapStructure.forEach(col => {
+            const cd = document.createElement('div'); cd.className='map-col';
+            for(let i=0; i<col.count; i++) {
+                const sId='slot_'+c; const sData=m[sId]||{items:[], color:'#fdfdfd'};
+                let itms = (sData.items||[]).map(x=>`<li class="${x.isReviewed?'reviewed':''}" style="border-right:3px solid ${x.color||'transparent'}; background:${x.color?x.color+'22':'transparent'}"><b>${x.qty} ${x.unit}</b> - ${x.name}</li>`).join('');
+                cd.innerHTML += `<div class="slot" style="background:${sData.color}" onclick="openSlot('${sId}', ${c-1})"><div class="slot-title">رصة ${c}</div>${itms?`<ul class="slot-items">${itms}</ul>`:'<div class="empty-slot">فارغة</div>'}</div>`;
+                c++;
+            }
+            w.appendChild(cd);
+        });
     }
-
-    // دوال التحكم الخاصة بالخريطة
-    function toggleMapItemReview(event, index) {
-        event.stopPropagation(); // عشان النافذة متقفلش أو تعمل كليك في حتة تانية
-        const items = mapData[dateInput.value][currentActiveSlotId];
-        items[index].isReviewed = !items[index].isReviewed;
-        saveMapToFirebase();
+    function openSlot(id, n) { currentActiveSlotId=id; slotEditIndex=null; document.getElementById('modalSlotTitle').innerText='تعديل رصة '+(n+1); document.getElementById('slotColorPicker').value=(mapData[dateInput.value][id].color==='#fdfdfd'?'#ffffff':mapData[dateInput.value][id].color); renderModalItems(); document.getElementById('slotModal').style.display='flex'; }
+    function closeSlotModal() { document.getElementById('slotModal').style.display='none'; }
+    function changeSlotColor() { mapData[dateInput.value][currentActiveSlotId].color=document.getElementById('slotColorPicker').value; saveMapToFirebase(); }
+    function renderModalItems() {
+        const u = document.getElementById('slotItemsListUI'); u.innerHTML='';
+        (mapData[dateInput.value][currentActiveSlotId].items||[]).forEach((x,i)=>{
+            u.innerHTML+=`<li class="${x.isReviewed?'reviewed':''}" style="border-right:5px solid ${x.color||'transparent'}; background:${x.color?x.color+'22':'#eee'}"><span><b>${x.qty} ${x.unit}</b> - ${x.name}</span> <div class="action-btns"><button onclick="togMapRev(event,${i})" style="color:var(--secondary-color)"><i class="fas fa-check"></i></button><button onclick="delMap(event,${i})" style="color:var(--danger)"><i class="fas fa-trash"></i></button></div></li>`;
+        });
     }
-
-    function moveMapItem(event, index, direction) {
-        event.stopPropagation();
-        const items = mapData[dateInput.value][currentActiveSlotId];
-        const newIndex = index + direction;
-        if (newIndex >= 0 && newIndex < items.length) {
-            const temp = items[index];
-            items[index] = items[newIndex];
-            items[newIndex] = temp;
-            saveMapToFirebase();
-        }
+    function handleAddOrEditSlotItem() {
+        const c=document.getElementById('slotCode').value, n=document.getElementById('slotItemName').value, q=parseFloat(document.getElementById('slotItemQty').value), u=document.getElementById('slotItemUnit').value, clr=document.getElementById('slotItemColor').value;
+        if(!n||isNaN(q)) return alert("أكمل البيانات!");
+        if(!mapData[dateInput.value][currentActiveSlotId].items) mapData[dateInput.value][currentActiveSlotId].items=[];
+        mapData[dateInput.value][currentActiveSlotId].items.push({code:c, name:n, qty:q, unit:u, color:clr, isReviewed:false}); saveMapToFirebase();
+        document.getElementById('slotCode').value=''; document.getElementById('slotItemName').innerHTML='<option>اكتب الكود...</option>'; document.getElementById('slotItemQty').value=''; renderModalItems();
     }
+    function togMapRev(e,i){ e.stopPropagation(); mapData[dateInput.value][currentActiveSlotId].items[i].isReviewed=!mapData[dateInput.value][currentActiveSlotId].items[i].isReviewed; saveMapToFirebase(); renderModalItems(); }
+    function delMap(e,i){ e.stopPropagation(); if(confirm("حذف؟")){ mapData[dateInput.value][currentActiveSlotId].items.splice(i,1); saveMapToFirebase(); renderModalItems(); } }
 
-    function deleteItemFromSlot(event, index) {
-        event.stopPropagation();
-        if(confirm("هل تريد حذف هذا الصنف من الخانة؟")) {
-            mapData[dateInput.value][currentActiveSlotId].splice(index, 1);
-            saveMapToFirebase();
-        }
+    async function captureReport(tId) {
+        document.getElementById('loadingOverlay').style.display='flex';
+        document.querySelectorAll('.no-print, .controls-section, header, .tabs').forEach(e=>e.style.display='none');
+        const canvas = await html2canvas(document.getElementById(tId), {scale:2});
+        document.querySelectorAll('.no-print, .controls-section, header, .tabs').forEach(e=>e.style.display='');
+        const a=document.createElement('a'); a.download=`تقرير_${dateInput.value}.png`; a.href=canvas.toDataURL(); a.click(); document.getElementById('loadingOverlay').style.display='none';
     }
-
-    // --- أدوات مساعدة ---
-    function copyToClipboard(text) { navigator.clipboard.writeText(text).then(() => alert("تم نسخ: " + text)); }
-
-    async function captureReport() {
-        const overlay = document.getElementById('loadingOverlay');
-        overlay.style.display = 'flex';
-        
-        const hideElements = document.querySelectorAll('.controls-section, .share-btn, .action-btns, .tabs, .copy-text-btn');
-        hideElements.forEach(el => el.style.display = 'none');
-
-        const canvas = await html2canvas(document.getElementById('printableArea'), { useCORS: true, scale: 2 });
-        
-        hideElements.forEach(el => el.style.display = '');
-
-        const link = document.createElement('a');
-        link.download = `تقرير_المخزن_${dateInput.value}.png`;
-        link.href = canvas.toDataURL();
-        link.click();
-        overlay.style.display = 'none';
-    }
-
-    // --- بدء التشغيل ---
-    dateInput.addEventListener('change', () => attachFirebaseListeners(dateInput.value));
-    attachFirebaseListeners(dateInput.value);
 
 </script>
 </body>
